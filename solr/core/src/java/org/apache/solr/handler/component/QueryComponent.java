@@ -360,8 +360,13 @@ public class QueryComponent extends SearchComponent
                               CursorMarkParams.CURSOR_MARK_PARAM + " and " + CommonParams.TIME_ALLOWED);
     }
 
+    long minDocs = params.getLong(CommonParams.MIN_DOCS, 0);
+    long maxDocs = params.getLong(CommonParams.MAX_DOCS, Long.MAX_VALUE);
+
     QueryCommand cmd = rb.createQueryCommand();
     cmd.setTimeAllowed(timeAllowed);
+    cmd.setMinDocs(minDocs);
+    cmd.setMaxDocs(maxDocs);
 
     req.getContext().put(SolrIndexSearcher.STATS_SOURCE, statsCache.get(req));
     

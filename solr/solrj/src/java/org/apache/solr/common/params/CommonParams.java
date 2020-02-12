@@ -53,6 +53,10 @@ public interface CommonParams {
 
   /** rank query */
   String RQ ="rq";
+
+  /* limits on the docs collected */
+  String MIN_DOCS = "mindocs";
+  String MAX_DOCS = "maxdocs";
   
   /** distrib string */
   String DISTRIB = "distrib";
