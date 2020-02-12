@@ -145,7 +145,7 @@ public class TestTimeLimitingCollector extends LuceneTestCase {
       myHc = new MyHitCollector();
       long oneHour = 3600000;
       long duration = TestUtil.nextLong(random(), oneHour, Long.MAX_VALUE); 
-      Collector tlCollector = createTimedCollector(myHc, duration, false);
+      Collector tlCollector = createTimedCollector(myHc, duration, false, 0, Long.MAX_VALUE);
       search(tlCollector);
       totalTLCResults = myHc.hitCount();
     } catch (Exception e) {
@@ -155,8 +155,8 @@ public class TestTimeLimitingCollector extends LuceneTestCase {
     assertEquals("Wrong number of results!", totalResults, totalTLCResults);
   }
 
-  private Collector createTimedCollector(MyHitCollector hc, long timeAllowed, boolean greedy) {
-    TimeLimitingCollector res = new TimeLimitingCollector(hc, counter, timeAllowed);
+  private Collector createTimedCollector(MyHitCollector hc, long timeAllowed, boolean greedy, long minDocs, long maxDocs) {
+    TimeLimitingCollector res = new TimeLimitingCollector(hc, counter, timeAllowed, minDocs, maxDocs);
     res.setGreedy(greedy); // set to true to make sure at least one doc is collected.
     return res;
   }
@@ -175,11 +175,48 @@ public class TestTimeLimitingCollector extends LuceneTestCase {
     doTestTimeout(false, false);
   }
 
+  public void testMinDocsOverridesTimeout() {
+    boolean greedy = false;
+    // setup
+    MyHitCollector myHc = new MyHitCollector();
+    myHc.setSlowDown(SLOW_DOWN);
+    Collector tlCollector = createTimedCollector(myHc, TIME_ALLOWED, greedy, 20, Long.MAX_VALUE);
+
+    // search: must get exception
+    TimeExceededException timeoutException = expectThrows(TimeExceededException.class, () -> {
+      search(tlCollector);
+    });
+
+    // greediness affect last doc collected
+    int exceptionDoc = timeoutException.getLastDocCollected();
+    int lastCollected = myHc.getLastDocCollected();
+    assertEquals(20, myHc.hitCount());
+  }
+
+  public void testMaxDocsOverridesTimeout() {
+    boolean greedy = false;
+    // setup
+    MyHitCollector myHc = new MyHitCollector();
+    myHc.setSlowDown(SLOW_DOWN);
+    Collector tlCollector = createTimedCollector(myHc, TIME_ALLOWED, greedy, 0, 10);
+
+    // search: must get exception
+    TimeExceededException timeoutException = expectThrows(TimeExceededException.class, () -> {
+      search(tlCollector);
+    });
+
+    // greediness affect last doc collected
+    int exceptionDoc = timeoutException.getLastDocCollected();
+    int lastCollected = myHc.getLastDocCollected();
+    assertEquals(10, myHc.hitCount());
+    assertTrue(timeoutException.didHitDocLimit());
+  }
+
   private void doTestTimeout(boolean multiThreaded, boolean greedy) {
     // setup
     MyHitCollector myHc = new MyHitCollector();
     myHc.setSlowDown(SLOW_DOWN);
-    Collector tlCollector = createTimedCollector(myHc, TIME_ALLOWED, greedy);
+    Collector tlCollector = createTimedCollector(myHc, TIME_ALLOWED, greedy, 0, Long.MAX_VALUE);
 
     // search: must get exception
     TimeExceededException timeoutException = expectThrows(TimeExceededException.class, () -> {
@@ -266,7 +303,7 @@ public class TestTimeLimitingCollector extends LuceneTestCase {
 
   public void testNoHits() throws IOException {
     MyHitCollector myHc = new MyHitCollector();
-    Collector collector = createTimedCollector(myHc, -1, random().nextBoolean());
+    Collector collector = createTimedCollector(myHc, -1, random().nextBoolean(), 0, Long.MAX_VALUE);
     // search: must get exception
     expectThrows(TimeExceededException.class, () -> {
       BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder(); // won't match - we only test if we check timeout when collectors are pulled

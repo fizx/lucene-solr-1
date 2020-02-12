@@ -18,6 +18,7 @@ package org.apache.lucene.search;
 
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.util.Counter;
@@ -38,11 +39,13 @@ public class TimeLimitingCollector implements Collector {
     private long timeAllowed;
     private long timeElapsed;
     private int lastDocCollected;
-    private TimeExceededException(long timeAllowed, long timeElapsed, int lastDocCollected) {
+    private boolean hitDocLimit;
+    private TimeExceededException(long timeAllowed, long timeElapsed, int lastDocCollected, boolean hitDocLimit) {
       super("Elapsed time: " + timeElapsed + ".  Exceeded allowed search time: " + timeAllowed + " ms.");
       this.timeAllowed = timeAllowed;
       this.timeElapsed = timeElapsed;
       this.lastDocCollected = lastDocCollected;
+      this.hitDocLimit = hitDocLimit;
     }
     /** Returns allowed time (milliseconds). */
     public long getTimeAllowed() {
@@ -56,6 +59,8 @@ public class TimeLimitingCollector implements Collector {
     public int getLastDocCollected() {
       return lastDocCollected;
     }
+    /** Returns whether search hit the doc limit (before the time limit) */
+    public boolean didHitDocLimit() { return hitDocLimit; }
   }
 
   private long t0 = Long.MIN_VALUE;
@@ -65,6 +70,9 @@ public class TimeLimitingCollector implements Collector {
   private final long ticksAllowed;
   private boolean greedy = false;
   private int docBase;
+  private final long minDocs;
+  private final long maxDocs;
+  private final AtomicLong collected;
 
   /**
    * Create a TimeLimitedCollector wrapper over another {@link Collector} with a specified timeout.
@@ -73,10 +81,14 @@ public class TimeLimitingCollector implements Collector {
    * @param ticksAllowed max time allowed for collecting
    * hits after which {@link TimeExceededException} is thrown
    */
-  public TimeLimitingCollector(final Collector collector, Counter clock, final long ticksAllowed ) {
+  public TimeLimitingCollector(final Collector collector, Counter clock, final long ticksAllowed,
+                               final long minDocs, final long maxDocs) {
     this.collector = collector;
     this.clock = clock;
     this.ticksAllowed = ticksAllowed;
+    this.minDocs = minDocs;
+    this.maxDocs = maxDocs;
+    this.collected = new AtomicLong();
   }
   
   /**
@@ -138,21 +150,23 @@ public class TimeLimitingCollector implements Collector {
       setBaseline();
     }
     final long time = clock.get();
-    if (time - timeout > 0L) {
-      throw new TimeExceededException(timeout - t0, time - t0, -1);
+    final boolean overDocLimit = collected.get() > maxDocs;
+    if ((time - timeout > 0L && collected.get() >= minDocs) || overDocLimit) {
+      throw new TimeExceededException(timeout - t0, time - t0, -1, overDocLimit);
     }
     return new FilterLeafCollector(collector.getLeafCollector(context)) {
       
       @Override
       public void collect(int doc) throws IOException {
         final long time = clock.get();
-        if (time - timeout > 0L) {
+        final boolean overDocLimit = collected.incrementAndGet() > maxDocs;
+        if ((time - timeout > 0L && collected.get() > minDocs) || overDocLimit) {
           if (greedy) {
             //System.out.println(this+"  greedy: before failing, collecting doc: "+(docBase + doc)+"  "+(time-t0));
             in.collect(doc);
           }
           //System.out.println(this+"  failing on:  "+(docBase + doc)+"  "+(time-t0));
-          throw new TimeExceededException( timeout-t0, time-t0, docBase + doc );
+          throw new TimeExceededException( timeout-t0, time-t0, docBase + doc, overDocLimit);
         }
         //System.out.println(this+"  collecting: "+(docBase + doc)+"  "+(time-t0));
         in.collect(doc);
