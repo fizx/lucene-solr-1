@@ -190,8 +190,11 @@ public class SolrIndexSearcher extends IndexSearcher implements Closeable, SolrI
     }
 
     final long timeAllowed = cmd.getTimeAllowed();
+    final long minDocs = cmd.getMinDocs();
+    final long maxDocs = cmd.getMaxDocs();
     if (timeAllowed > 0) {
-      collector = new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(), timeAllowed);
+      collector = new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(), timeAllowed,
+          minDocs, maxDocs);
     }
 
     if (postFilter != null) {

@@ -220,7 +220,8 @@ public class CommandHandler {
                                      ProcessedFilter filter, 
                                      Collector collector) throws IOException {
     if (queryCommand.getTimeAllowed() > 0 ) {
-      collector = new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(), queryCommand.getTimeAllowed());
+      collector = new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(), queryCommand.getTimeAllowed(),
+          queryCommand.getMinDocs(), queryCommand.getMaxDocs());
     }
 
     TotalHitCountCollector hitCountCollector = new TotalHitCountCollector();

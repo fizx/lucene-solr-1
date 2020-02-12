@@ -427,7 +427,8 @@ public class Grouping {
   private void searchWithTimeLimiter(final Filter luceneFilter, Collector collector) throws IOException {
     if (cmd.getTimeAllowed() > 0) {
       if (timeLimitingCollector == null) {
-        timeLimitingCollector = new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(), cmd.getTimeAllowed());
+        timeLimitingCollector = new TimeLimitingCollector(collector, TimeLimitingCollector.getGlobalCounter(), cmd.getTimeAllowed(),
+            cmd.getMinDocs(), cmd.getMaxDocs());
       } else {
         /*
          * This is so the same timer can be used for grouping's multiple phases.   

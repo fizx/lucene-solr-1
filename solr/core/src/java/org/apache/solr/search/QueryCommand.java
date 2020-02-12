@@ -37,6 +37,8 @@ public class QueryCommand {
   private int supersetMaxDoc;
   private int flags;
   private long timeAllowed = -1;
+  private long minDocs = 0;
+  private long maxDocs = Long.MAX_VALUE;
   private CursorMark cursorMark;
   
   public CursorMark getCursorMark() {
@@ -180,6 +182,26 @@ public class QueryCommand {
   
   public QueryCommand setTimeAllowed(long timeAllowed) {
     this.timeAllowed = timeAllowed;
+    return this;
+  }
+
+
+  public long getMinDocs() {
+    return minDocs;
+  }
+
+  public QueryCommand setMinDocs(long minDocs) {
+    this.minDocs = minDocs;
+    return this;
+  }
+
+
+  public long getMaxDocs() {
+    return maxDocs;
+  }
+
+  public QueryCommand setMaxDocs(long maxDocs) {
+    this.maxDocs = maxDocs;
     return this;
   }
   
